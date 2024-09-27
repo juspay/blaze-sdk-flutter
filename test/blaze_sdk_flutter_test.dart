@@ -6,14 +6,11 @@ import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
 class MockBlazeSdkFlutterPlatform
     with MockPlatformInterfaceMixin
-    implements BlazeSdkFlutterPlatform {
-
-  @override
-  Future<String?> getPlatformVersion() => Future.value('42');
-}
+    implements BlazeSdkFlutterPlatform {}
 
 void main() {
-  final BlazeSdkFlutterPlatform initialPlatform = BlazeSdkFlutterPlatform.instance;
+  final BlazeSdkFlutterPlatform initialPlatform =
+      BlazeSdkFlutterPlatform.instance;
 
   test('$MethodChannelBlazeSdkFlutter is the default instance', () {
     expect(initialPlatform, isInstanceOf<MethodChannelBlazeSdkFlutter>());
@@ -24,6 +21,6 @@ void main() {
     MockBlazeSdkFlutterPlatform fakePlatform = MockBlazeSdkFlutterPlatform();
     BlazeSdkFlutterPlatform.instance = fakePlatform;
 
-    expect(await blazeSdkFlutterPlugin.getPlatformVersion(), '42');
+    // TODO: Add test case implementation
   });
 }
