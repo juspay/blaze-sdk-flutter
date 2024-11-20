@@ -33,7 +33,12 @@ class MethodChannelBlazeSdkFlutter extends BlazeSdkFlutterPlatform {
   void registerCallback(Function callbackFn) {
     methodChannel.setMethodCallHandler((call) async {
       if (call.method == "blaze-callback") {
-        callbackFn(call.arguments);
+        try {
+          var callbackData = jsonDecode(call.arguments);
+          callbackFn(callbackData);
+        }
+        // ignore: empty_catches
+        catch (e) {}
       }
     });
   }
