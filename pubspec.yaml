@@ -1,11 +1,11 @@
 name: blaze_sdk_flutter
 description: "SDK for integrating Breeze 1CCO into your Cross platform Flutter Application"
-version: 0.0.1
+version: 0.0.3
 homepage: https://breeze.in
 
 environment:
-  sdk: ^3.5.3
-  flutter: '>=3.3.0'
+  sdk: ^3.0.0
+  flutter: '>=3.0.0'
 
 dependencies:
   flutter:
