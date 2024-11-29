@@ -15,3 +15,7 @@
 ## 0.1.0
 
 * added support for flutter web.
+
+## 0.2.0
+
+* upgraded web package to 1.0.0 for web
