@@ -22,7 +22,7 @@ class BlazeSdkFlutterWeb extends BlazeSdkFlutterPlatform {
 
   void loadBlaze() {
     final blazeSDKWebHolder = html.ScriptElement()
-      ..src = 'https://sdk.breeze.in/packages/blaze/0.0.4/cdn.js'
+      ..src = 'https://sdk.breeze.in/packages/blaze/0.1.0/cdn.js'
       ..type = 'text/javascript';
 
     blazeSDKWebHolder.onLoad.listen((event) {
@@ -55,6 +55,13 @@ class BlazeSdkFlutterWeb extends BlazeSdkFlutterPlatform {
       _invokeCoreMethod('process', [payloadString]);
     } else {
       _eventQueue.add({'eventName': 'process', 'eventPayload': payloadString});
+    }
+  }
+
+  @override
+  Future<void> terminate() async {
+    if (_isSdkLoaded) {
+      _invokeCoreMethod('terminate', []);
     }
   }
 
