@@ -19,3 +19,7 @@
 ## 0.2.0
 
 * upgraded web package to 1.0.0 for web
+
+## 0.3.0
+
+* added implementation for terminate in web
