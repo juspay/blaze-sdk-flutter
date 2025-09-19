@@ -23,3 +23,11 @@
 ## 0.3.0
 
 * added implementation for terminate in web
+
+# 0.4.0
+
+* Fresh publishing
+
+# 0.5.0 
+
+* Refresh published package
