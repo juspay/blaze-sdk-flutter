@@ -1,8 +1,8 @@
 PODS:
   - blaze_sdk_flutter (0.0.1):
-    - BlazeSDK (= 0.5.0)
+    - BlazeSDK (= 0.6.0)
     - Flutter
-  - BlazeSDK (0.5.0)
+  - BlazeSDK (0.6.0)
   - Flutter (1.0.0)
   - integration_test (0.0.1):
     - Flutter
@@ -25,8 +25,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/integration_test/ios"
 
 SPEC CHECKSUMS:
-  blaze_sdk_flutter: f86a2e27d9e77ad89dda968cfdd148dd3427f721
-  BlazeSDK: 36bac8dffec2c17767ae2b5215eec1cd8a56facc
+  blaze_sdk_flutter: da9f2ce0437bdfea0fe9d65d87c2b681be499a68
+  BlazeSDK: 479b4b15f212fe330698bb9497c027660c7f2edd
   Flutter: e0871f40cf51350855a761d2e70bf5af5b9b5de7
   integration_test: 4a889634ef21a45d28d50d622cf412dc6d9f586e
 
