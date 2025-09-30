@@ -35,3 +35,11 @@
 # 0.6.0
 
 - Updated iOS and Android SDKs
+
+# 0.7.0
+
+- Updated iOS and Android SDKs
+
+# 0.8.0
+
+- Updated iOS and Android SDKs
