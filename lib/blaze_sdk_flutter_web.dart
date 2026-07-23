@@ -1,8 +1,9 @@
-import 'package:flutter_web_plugins/flutter_web_plugins.dart';
-import 'dart:html' as html;
 import 'dart:convert';
-import 'dart:js_util' as js_util;
-import 'dart:js' as js;
+import 'dart:js_interop';
+import 'dart:js_interop_unsafe';
+
+import 'package:flutter_web_plugins/flutter_web_plugins.dart';
+import 'package:web/web.dart' as web;
 
 import 'blaze_sdk_flutter_platform_interface.dart';
 
@@ -10,7 +11,7 @@ class BlazeSdkFlutterWeb extends BlazeSdkFlutterPlatform {
   bool _isSdkLoaded = false;
   final List<Map<String, dynamic>> _eventQueue = [];
   void Function(Map<String, dynamic>)? _callbackFn;
-  dynamic _core;
+  JSObject? _core;
 
   BlazeSdkFlutterWeb() {
     loadBlaze();
@@ -21,17 +22,21 @@ class BlazeSdkFlutterWeb extends BlazeSdkFlutterPlatform {
   }
 
   void loadBlaze() {
-    final blazeSDKWebHolder = html.ScriptElement()
-      ..src = 'https://sdk.breeze.in/packages/blaze/0.1.0/cdn.js'
-      ..type = 'text/javascript';
+    final blazeSDKWebHolder =
+        (web.document.createElement('script') as web.HTMLScriptElement)
+          ..src = 'https://sdk.breeze.in/packages/blaze/0.1.0/cdn.js'
+          ..type = 'text/javascript';
 
-    blazeSDKWebHolder.onLoad.listen((event) {
-      _core = js_util.getProperty(js_util.globalThis, 'BlazeSDKWeb');
-      _isSdkLoaded = true;
-      _flushEventQueue();
-    });
+    blazeSDKWebHolder.addEventListener(
+      'load',
+      ((web.Event event) {
+        _core = globalContext['BlazeSDKWeb'] as JSObject?;
+        _isSdkLoaded = true;
+        _flushEventQueue();
+      }).toJS,
+    );
 
-    html.document.body!.append(blazeSDKWebHolder);
+    web.document.body!.appendChild(blazeSDKWebHolder);
   }
 
   @override
@@ -44,8 +49,7 @@ class BlazeSdkFlutterWeb extends BlazeSdkFlutterPlatform {
       _eventQueue.add({'eventName': 'initiate', 'eventPayload': payloadString});
     }
     _callbackFn = callbackFn;
-    final blazeCallback = js.allowInterop(_coreCallbackHandler);
-    js_util.setProperty(js_util.globalThis, 'blazeCallback', blazeCallback);
+    globalContext['blazeCallback'] = _coreCallbackHandler.toJS;
   }
 
   @override
@@ -66,11 +70,11 @@ class BlazeSdkFlutterWeb extends BlazeSdkFlutterPlatform {
   }
 
   void _flushEventQueue() {
-    final pendingEvents = _eventQueue;
+    final pendingEvents = List<Map<String, dynamic>>.from(_eventQueue);
     _eventQueue.clear();
     for (final event in pendingEvents) {
       final eventName = event['eventName'];
-      final eventPayload = event['eventPayload'];
+      final eventPayload = event['eventPayload'] as String;
       switch (eventName) {
         case 'initiate':
           _invokeCoreMethod("initiate", [eventPayload]);
@@ -84,9 +88,10 @@ class BlazeSdkFlutterWeb extends BlazeSdkFlutterPlatform {
     }
   }
 
-  void _invokeCoreMethod(String method, List<dynamic> args) {
+  void _invokeCoreMethod(String method, List<String> args) {
     if (_core != null) {
-      js_util.callMethod(_core, method, args);
+      _core!.callMethodVarArgs(
+          method.toJS, [for (final arg in args) arg.toJS]);
     }
   }
 
@@ -95,7 +100,7 @@ class BlazeSdkFlutterWeb extends BlazeSdkFlutterPlatform {
       final eventMap = jsonDecode(event);
       _callbackFn!(eventMap);
     } catch (e) {
-      html.window.console.log('Error in callback handler: $e');
+      web.console.log('Error in callback handler: $e'.toJS);
     }
   }
 }

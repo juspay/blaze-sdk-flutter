@@ -29,7 +29,7 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      # Infos non-fatal until the dart:html -> package:web migration is done.
+      # Example-app lint infos are non-fatal; warnings and errors still fail.
       - name: Analyze
         run: flutter analyze --no-fatal-infos
 
