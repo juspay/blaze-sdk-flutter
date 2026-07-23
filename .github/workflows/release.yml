@@ -44,12 +44,12 @@ jobs:
         run: flutter pub publish --dry-run
 
   release:
-    name: Tag & Release
+    name: Version, Tag & Release
     needs: validate
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:
-      contents: write # push tag, create GitHub release
+      contents: write # bump commit, tag, GitHub release
       actions: write # dispatch publish.yml
     steps:
       - name: Guard branch
@@ -63,39 +63,93 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Read pubspec version
+      # mode: asis (pubspec version unpublished) | bump (auto-bump from commits) | skip (nothing new)
+      - name: Determine version
         id: version
         run: |
-          VERSION=$(grep '^version:' pubspec.yaml | awk '{print $2}')
-          if ! echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.]+)?(\+[A-Za-z0-9.]+)?$'; then
-            echo "::error::Version '$VERSION' in pubspec.yaml is not valid semver"
+          SEMVER_RE='^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.]+)?(\+[A-Za-z0-9.]+)?$'
+          CURRENT=$(grep '^version:' pubspec.yaml | awk '{print $2}')
+          if ! echo "$CURRENT" | grep -Eq "$SEMVER_RE"; then
+            echo "::error::Version '$CURRENT' in pubspec.yaml is not valid semver"
             exit 1
           fi
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Releasing version: $VERSION"
 
-      - name: Check if version is already published
-        id: check
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
           HTTP=$(curl -s -o "$RUNNER_TEMP/pub-api.json" -w '%{http_code}' https://pub.dev/api/packages/blaze_sdk_flutter)
-          if [ "$HTTP" = "200" ] && jq -e --arg v "$VERSION" '.versions[] | select(.version == $v)' "$RUNNER_TEMP/pub-api.json" > /dev/null; then
-            echo "published=true" >> "$GITHUB_OUTPUT"
-            echo "::notice::blaze_sdk_flutter $VERSION already exists on pub.dev. Bump the version in pubspec.yaml to publish a new release."
-          elif [ "$HTTP" = "200" ] || [ "$HTTP" = "404" ]; then
-            echo "published=false" >> "$GITHUB_OUTPUT"
-          else
+          if [ "$HTTP" != "200" ] && [ "$HTTP" != "404" ]; then
             echo "::error::pub.dev API returned HTTP $HTTP"
             exit 1
           fi
+          if [ "$HTTP" = "404" ] || ! jq -e --arg v "$CURRENT" '.versions[] | select(.version == $v)' "$RUNNER_TEMP/pub-api.json" > /dev/null; then
+            echo "mode=asis" >> "$GITHUB_OUTPUT"
+            echo "version=$CURRENT" >> "$GITHUB_OUTPUT"
+            echo "Releasing unpublished pubspec version as-is: $CURRENT"
+            exit 0
+          fi
+
+          LATEST_TAG=$(git tag --list | grep -E "$SEMVER_RE" | sort -V | tail -1 || true)
+          if [ -n "$LATEST_TAG" ]; then
+            RANGE="$LATEST_TAG..HEAD"
+            if [ -z "$(git log --pretty=%s "$RANGE")" ]; then
+              echo "mode=skip" >> "$GITHUB_OUTPUT"
+              echo "No commits since $LATEST_TAG, nothing to release."
+              exit 0
+            fi
+          else
+            RANGE="-1"
+          fi
+
+          # Max bump across the range; Jira prefixes (BZ-123: feat: ...) are stripped.
+          SUBJECTS=$(git log --pretty=%s $RANGE | sed -E 's/^[A-Z]+-[0-9]+:[[:space:]]*//')
+          BUMP=patch
+          if git log --pretty=%B $RANGE | grep -Eq '^[[:space:]]*BREAKING[- ]CHANGE' \
+             || echo "$SUBJECTS" | grep -Eq '^[a-z]+(\([^)]+\))?!:'; then
+            BUMP=major
+          elif echo "$SUBJECTS" | grep -Eq '^feat(\([^)]+\))?:'; then
+            BUMP=minor
+          fi
+
+          BASE=${CURRENT%%[-+]*}
+          IFS=. read -r MAJOR MINOR PATCH <<< "$BASE"
+          case "$BUMP" in
+            major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
+            minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
+            patch) PATCH=$((PATCH + 1)) ;;
+          esac
+          VERSION="$MAJOR.$MINOR.$PATCH"
+
+          echo "mode=bump" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "range=$RANGE" >> "$GITHUB_OUTPUT"
+          echo "Auto-bumping ($BUMP): $CURRENT -> $VERSION"
+
+      - name: Commit version bump and changelog
+        if: steps.version.outputs.mode == 'bump'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          RANGE="${{ steps.version.outputs.range }}"
+          sed -i "s/^version: .*/version: $VERSION/" pubspec.yaml
+          {
+            head -1 CHANGELOG.md
+            echo ""
+            echo "## $VERSION"
+            echo ""
+            git log --pretty='- %s' $RANGE
+            tail -n +2 CHANGELOG.md
+          } > "$RUNNER_TEMP/CHANGELOG.md"
+          mv "$RUNNER_TEMP/CHANGELOG.md" CHANGELOG.md
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pubspec.yaml CHANGELOG.md
+          git commit -m "chore(release): $VERSION"
+          git push origin HEAD:release
 
       - name: Create & push tag
-        if: steps.check.outputs.published == 'false'
+        if: steps.version.outputs.mode != 'skip'
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           if git rev-parse -q --verify "refs/tags/$VERSION" >/dev/null; then
             if [ "$(git rev-parse "$VERSION^{commit}")" != "$(git rev-parse HEAD)" ]; then
-              echo "::error::Tag $VERSION already exists on a different commit; bump the version in pubspec.yaml"
+              echo "::error::Tag $VERSION already exists on a different commit"
               exit 1
             fi
             echo "Tag $VERSION already points at this commit, reusing it."
@@ -107,7 +161,7 @@ jobs:
           fi
 
       - name: Create GitHub release
-        if: steps.check.outputs.published == 'false'
+        if: steps.version.outputs.mode != 'skip'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -119,7 +173,7 @@ jobs:
           fi
 
       - name: Dispatch publish workflow on the tag
-        if: steps.check.outputs.published == 'false'
+        if: steps.version.outputs.mode != 'skip'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
