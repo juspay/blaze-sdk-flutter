@@ -1,0 +1,73 @@
+name: Publish to pub.dev
+
+on:
+  push:
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+*"
+  workflow_dispatch:
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: pub.dev
+    permissions:
+      contents: read
+      id-token: write # pub.dev OIDC auth
+    steps:
+      - name: Guard tag ref
+        run: |
+          if [[ "$GITHUB_REF" != refs/tags/* ]]; then
+            echo "::error::This workflow must run on a version tag (got $GITHUB_REF). Dispatch it with the tag as ref."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - name: Check tag matches pubspec version
+        run: |
+          PUBSPEC_VERSION=$(grep '^version:' pubspec.yaml | awk '{print $2}')
+          if [ "$PUBSPEC_VERSION" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match pubspec.yaml version $PUBSPEC_VERSION"
+            exit 1
+          fi
+
+      - name: Check if version is already published
+        id: check
+        run: |
+          HTTP=$(curl -s -o "$RUNNER_TEMP/pub-api.json" -w '%{http_code}' https://pub.dev/api/packages/blaze_sdk_flutter)
+          if [ "$HTTP" = "200" ] && jq -e --arg v "$GITHUB_REF_NAME" '.versions[] | select(.version == $v)' "$RUNNER_TEMP/pub-api.json" > /dev/null; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::blaze_sdk_flutter $GITHUB_REF_NAME is already on pub.dev, nothing to do."
+          elif [ "$HTTP" = "200" ] || [ "$HTTP" = "404" ]; then
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::pub.dev API returned HTTP $HTTP"
+            exit 1
+          fi
+
+      # Mints the pub.dev OIDC token; flutter's pub shares the same token store.
+      - uses: dart-lang/setup-dart@v1
+        if: steps.check.outputs.published == 'false'
+
+      - uses: subosito/flutter-action@v2
+        if: steps.check.outputs.published == 'false'
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        if: steps.check.outputs.published == 'false'
+        run: flutter pub get
+
+      # Publish exactly the tagged content (pub get may rewrite example/pubspec.lock).
+      - name: Restore lockfile drift from pub get
+        if: steps.check.outputs.published == 'false'
+        run: git checkout -- .
+
+      - name: Publish
+        if: steps.check.outputs.published == 'false'
+        run: flutter pub publish --force
