@@ -1,5 +1,9 @@
 # Releases
 
+## 0.8.1
+
+- fix: ci pipeline for automatic version bump and publish
+
 ## 0.0.1
 
 - Added android integration for flutter multi-platform Blaze SDK.
