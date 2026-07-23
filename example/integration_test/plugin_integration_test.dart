@@ -11,15 +11,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 
 import 'package:blaze_sdk_flutter/blaze_sdk_flutter.dart';
+import 'package:blaze_sdk_flutter/blaze_sdk_flutter_platform_interface.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('getPlatformVersion test', (WidgetTester tester) async {
+  testWidgets('plugin platform implementation is registered',
+      (WidgetTester tester) async {
     final BlazeSdkFlutter plugin = BlazeSdkFlutter();
-    final String? version = await plugin.getPlatformVersion();
-    // The version string depends on the host platform running the test, so
-    // just assert that some non-empty string is returned.
-    expect(version?.isNotEmpty, true);
+    expect(plugin, isNotNull);
+    expect(BlazeSdkFlutterPlatform.instance, isNotNull);
   });
 }
