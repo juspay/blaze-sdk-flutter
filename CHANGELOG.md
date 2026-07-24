@@ -1,5 +1,9 @@
 # Releases
 
+## 0.8.2
+
+- BZ-4960: chore: update Blaze Android and iOS SDKs
+
 ## 0.8.1
 
 - fix: ci pipeline for automatic version bump and publish
