@@ -7,12 +7,14 @@ public class BlazeSdkFlutterPlugin: NSObject, FlutterPlugin {
 
     private var blaze: Blaze?
     private var methodChannel: FlutterMethodChannel?
+    private weak var registrar: FlutterPluginRegistrar?
 
     public static func register(with registrar: FlutterPluginRegistrar) {
         let channel = FlutterMethodChannel(
             name: "blaze_sdk_flutter", binaryMessenger: registrar.messenger())
         let instance = BlazeSdkFlutterPlugin()
         instance.methodChannel = channel
+        instance.registrar = registrar
         registrar.addMethodCallDelegate(instance, channel: channel)
     }
 
@@ -41,8 +43,7 @@ public class BlazeSdkFlutterPlugin: NSObject, FlutterPlugin {
         let initiatePayloadJson = safeParseJson(initiatePayload)
         DispatchQueue.main.async {
             if let blaze = self.blaze,
-                let rootViewController = UIApplication.shared.delegate?.window??
-                    .rootViewController
+                let rootViewController = self.registrar?.viewController
             {
                 blaze.initiate(
                     context: rootViewController,
