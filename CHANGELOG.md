@@ -1,5 +1,9 @@
 # Releases
 
+## 0.8.3
+
+- BZ-5120: fix: resolve Blaze.process crash under Flutter scene-based lifecycle
+
 ## 0.8.2
 
 - BZ-4960: chore: update Blaze Android and iOS SDKs
